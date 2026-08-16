@@ -1,0 +1,566 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>FişAI — Akıllı Bütçe ve Fatura Takipçisi</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body class="min-h-screen pb-12">
+  <div id="app" class="max-w-7xl mx-auto px-4 py-6 space-y-6">
+
+    <!-- Navbar Header -->
+    <header class="cleo-card p-4 md:p-6 flex flex-col md:flex-row justify-between items-center gap-4">
+      <div class="flex items-center gap-3">
+        <div class="w-12 h-12 rounded-2xl bg-gradient-to-tr from-lime-400 to-emerald-500 flex items-center justify-center text-slate-950 text-2xl font-black shadow-lg glow-lime">
+          🧾
+        </div>
+        <div>
+          <div class="flex items-center gap-2">
+            <h1 class="text-2xl font-extrabold tracking-tight text-white">Fiş<span class="text-lime-400">AI</span></h1>
+            <span class="bg-lime-400/10 text-lime-400 text-[10px] font-black px-2.5 py-0.5 rounded-full border border-lime-400/20 uppercase tracking-widest">PRO</span>
+          </div>
+          <p class="text-xs text-slate-400 font-medium">Akıllı Tasarruf Önerileri, Canlı Chat Asistanı ve Tüketim Kıyaslaması</p>
+        </div>
+      </div>
+
+      <!-- Navigation Tabs -->
+      <div class="flex items-center gap-2 bg-slate-950/80 p-1.5 rounded-2xl border border-slate-800 no-print">
+        <button @click="currentTab = 'dashboard'" :class="currentTab === 'dashboard' ? 'nav-tab nav-tab-active' : 'nav-tab nav-tab-inactive'">
+          📊 Bütçe Paneli
+        </button>
+        <button @click="currentTab = 'account'" :class="currentTab === 'account' ? 'nav-tab nav-tab-active' : 'nav-tab nav-tab-inactive'">
+          👤 Hesabım & Geçmiş Aylar
+        </button>
+      </div>
+
+      <!-- Quick Actions -->
+      <div class="flex items-center gap-2 no-print">
+        <button @click="exportToCSV" class="bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 font-bold text-xs px-3 py-2.5 rounded-xl transition flex items-center gap-1.5">
+          <i class="fa-solid fa-file-csv text-emerald-400"></i> Excel/CSV İndir
+        </button>
+        <button @click="printReport" class="bg-indigo-600 hover:bg-indigo-500 text-white font-extrabold text-xs px-3.5 py-2.5 rounded-xl transition-all shadow-lg flex items-center gap-1.5 active:scale-95">
+          📄 Karne
+        </button>
+        <button @click="triggerRoast" class="bg-gradient-to-r from-rose-500 to-pink-600 hover:from-rose-600 hover:to-pink-700 text-white font-black text-xs px-3 py-2.5 rounded-xl transition-all shadow-lg glow-pink flex items-center gap-1.5 active:scale-95">
+          🔥 Eleştir
+        </button>
+        <button @click="triggerPraise" class="bg-gradient-to-r from-lime-400 to-emerald-500 hover:from-lime-500 hover:to-emerald-600 text-slate-950 font-black text-xs px-3 py-2.5 rounded-xl transition-all shadow-lg glow-lime flex items-center gap-1.5 active:scale-95">
+          ✨ Öv
+        </button>
+      </div>
+    </header>
+
+    <!-- TAB 1: DASHBOARD PANELİ -->
+    <div v-if="currentTab === 'dashboard'" class="space-y-6">
+
+      <!-- Hero Safe-to-Spend -->
+      <div class="cleo-card p-6 md:p-8 relative overflow-hidden bg-gradient-to-r from-slate-900/90 via-slate-900/70 to-indigo-950/50 border-lime-500/20">
+        <div class="absolute -right-10 -bottom-10 w-60 h-60 bg-lime-400/10 rounded-full blur-3xl pointer-events-none"></div>
+        
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 items-center relative z-10">
+          <div class="lg:col-span-2 space-y-2">
+            <div class="inline-flex items-center gap-2 bg-slate-800/80 px-3 py-1 rounded-full border border-slate-700 text-xs text-slate-300 font-bold">
+              <span class="w-2 h-2 rounded-full bg-lime-400 animate-pulse"></span>
+              Ayın Bitmesine {{ daysLeftInMonth }} Gün Kaldı
+            </div>
+            <h2 class="text-sm font-semibold uppercase tracking-wider text-slate-400">Bugün Harcayabileceğin Güvenli Limit</h2>
+            <div class="text-4xl md:text-6xl font-black text-gradient-lime tracking-tight">
+              {{ formatCurrency(safeToSpendDaily) }} <span class="text-lg font-bold text-slate-400">/ gün</span>
+            </div>
+            <p class="text-xs text-slate-400 max-w-xl">
+              Sabit faturalarınız ve bakiye durumunuz düşülerek günlük güvenli harcama limitiniz hesaplandı.
+            </p>
+          </div>
+
+          <div class="grid grid-cols-2 gap-3">
+            <div class="bg-slate-950/60 p-4 rounded-2xl border border-slate-800">
+              <span class="text-[11px] font-bold text-slate-400 uppercase">Toplam Gelir</span>
+              <div class="text-xl font-black text-emerald-400 mt-1">{{ formatCurrency(insights.total_income) }}</div>
+            </div>
+            <div class="bg-slate-950/60 p-4 rounded-2xl border border-slate-800">
+              <span class="text-[11px] font-bold text-slate-400 uppercase">Toplam Gider</span>
+              <div class="text-xl font-black text-rose-400 mt-1">{{ formatCurrency(insights.total_expense) }}</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- AI Akıllı Tasarruf Önerileri -->
+      <div class="cleo-card p-6 border-amber-500/30 bg-gradient-to-r from-amber-950/20 via-slate-900 to-slate-900 space-y-4">
+        <div class="flex items-center justify-between">
+          <h3 class="font-extrabold text-sm text-amber-300 flex items-center gap-2">
+            <i class="fa-solid fa-lightbulb text-amber-400"></i> FişAI — Akıllı Tasarruf & Bütçe Tavsiyeleri
+          </h3>
+          <span class="bg-amber-400/10 text-amber-400 text-[10px] font-black px-2.5 py-0.5 rounded-full border border-amber-400/20 uppercase">
+            Kişiselleştirilmiş
+          </span>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div v-for="(tip, i) in savingsRecommendations" :key="i" class="bg-slate-950/80 p-4 rounded-2xl border border-slate-800 space-y-2">
+            <div class="flex items-center gap-2 text-xs font-bold" :class="tip.color">
+              <span>{{ tip.icon }}</span>
+              <span>{{ tip.title }}</span>
+            </div>
+            <p class="text-xs text-slate-300 font-medium leading-relaxed">{{ tip.desc }}</p>
+            <div class="text-[11px] font-black text-emerald-400 pt-1 border-t border-slate-800/80">
+              Tahmini Kazanç: {{ tip.potentialSavings }}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- GRID: Financial Health Score & Peer Comparison -->
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+
+        <!-- 1. Finansal Sağlık Skoru & Rozetler -->
+        <div class="cleo-card p-6 space-y-4 border-lime-500/30">
+          <div class="flex items-center justify-between">
+            <h3 class="font-extrabold text-sm text-slate-100 flex items-center gap-2">
+              <i class="fa-solid fa-heart-pulse text-lime-400"></i> Finansal Sağlık Skoru
+            </h3>
+            <span class="text-xs font-black px-3 py-1 rounded-full border" :class="healthScore >= 80 ? 'bg-lime-400/10 text-lime-400 border-lime-400/30' : (healthScore >= 50 ? 'bg-amber-400/10 text-amber-400 border-amber-400/30' : 'bg-rose-500/10 text-rose-400 border-rose-500/30')">
+              {{ healthScore >= 80 ? 'MÜKEMMEL' : (healthScore >= 50 ? 'ORTA DÜZEY' : 'RİSKLİ') }}
+            </span>
+          </div>
+
+          <div class="flex items-center gap-6">
+            <div class="relative w-28 h-28 flex items-center justify-center rounded-full bg-slate-950 border-4" :class="healthScore >= 80 ? 'border-lime-400 shadow-[0_0_20px_rgba(163,230,53,0.3)]' : (healthScore >= 50 ? 'border-amber-400' : 'border-rose-500')">
+              <div class="text-center">
+                <span class="text-3xl font-black text-white">{{ healthScore }}</span>
+                <span class="block text-[10px] text-slate-500 font-bold uppercase">/ 100 Puan</span>
+              </div>
+            </div>
+
+            <div class="flex-1 space-y-2">
+              <span class="text-xs font-bold text-slate-400 uppercase">Kazanılan Finansal Rozetler</span>
+              <div class="flex flex-wrap gap-2">
+                <div v-for="badge in healthBadges" :key="badge.name" class="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-xs font-bold" :class="badge.color" :title="badge.desc">
+                  <span>{{ badge.icon }}</span>
+                  <span>{{ badge.name }}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 2. Hane Halkı Tüketim Kıyaslaması -->
+        <div class="cleo-card p-6 space-y-4 border-cyan-500/30">
+          <div class="flex items-center justify-between">
+            <h3 class="font-extrabold text-sm text-cyan-300 flex items-center gap-2">
+              <i class="fa-solid fa-users text-cyan-400"></i> Hane Halkı Tüketim Kıyaslaması
+            </h3>
+            <span class="bg-cyan-400/10 text-cyan-400 text-[10px] font-black px-2.5 py-0.5 rounded-full border border-cyan-400/20 uppercase">
+              TR Ortalaması
+            </span>
+          </div>
+
+          <div class="grid grid-cols-2 gap-3 text-xs">
+            <div v-for="peer in peerComparison" :key="peer.type" class="bg-slate-950/60 p-3 rounded-2xl border border-slate-800 space-y-1">
+              <div class="flex items-center justify-between font-bold text-slate-300">
+                <span>{{ peer.type }}</span>
+                <span :class="peer.isLower ? 'text-lime-400' : 'text-rose-400'" class="text-[10px] font-black px-2 py-0.5 rounded bg-slate-900 border border-slate-800">
+                  {{ peer.statusText }}
+                </span>
+              </div>
+              <div class="text-sm font-black text-white">
+                {{ peer.userVal }} <span class="text-[10px] text-slate-500 font-normal">/ Ort. {{ peer.avgVal }}</span>
+              </div>
+              <p class="text-[10px] text-slate-400 leading-tight">{{ peer.note }}</p>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- AI Output Box -->
+      <div v-if="activeSpeech" class="cleo-card p-5 border-2" :class="activeMood === 'roast' ? 'border-rose-500/50 bg-rose-950/20' : 'border-lime-500/50 bg-lime-950/20'">
+        <div class="flex items-start gap-4">
+          <div class="text-3xl p-2.5 rounded-2xl bg-slate-900 border border-slate-800">
+            {{ activeMood === 'roast' ? '🔥' : '✨' }}
+          </div>
+          <div class="space-y-1 flex-1">
+            <div class="flex items-center justify-between">
+              <h3 class="font-extrabold text-sm" :class="activeMood === 'roast' ? 'text-rose-400' : 'text-lime-400'">
+                {{ activeMood === 'roast' ? 'FişAI — Sert Eleştiri Modu' : 'FişAI — Takdir Modu' }}
+              </h3>
+              <button @click="activeSpeech = null" class="text-slate-500 hover:text-slate-300 text-xs"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <p class="text-sm font-semibold text-slate-100 leading-relaxed">{{ activeSpeech }}</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Main Content Grid -->
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+
+        <!-- Forms Column -->
+        <div class="space-y-6">
+          
+          <!-- Transaction Form (with Voice Recording) -->
+          <div class="cleo-card p-5 space-y-4">
+            <div class="flex items-center justify-between">
+              <h3 class="font-extrabold text-sm text-slate-100 flex items-center gap-2">
+                <i class="fa-solid fa-receipt text-lime-400"></i> İşlem Ekle
+              </h3>
+              <button type="button" @click="startVoiceInput" class="text-xs px-2.5 py-1 rounded-lg border font-bold flex items-center gap-1 transition" :class="isListening ? 'bg-rose-500/20 text-rose-400 border-rose-500/40 animate-pulse' : 'bg-slate-800 text-slate-300 border-slate-700'">
+                <i class="fa-solid fa-microphone"></i> {{ isListening ? 'Dinleniyor...' : 'Sesle Ekle' }}
+              </button>
+            </div>
+
+            <form @submit.prevent="addTransaction" class="space-y-3">
+              <div>
+                <label class="text-xs font-semibold text-slate-400">Harcama veya Gelir Açıklaması</label>
+                <input v-model="newTx.title" @input="onTitleChange" type="text" placeholder="Örn: Starbucks, Netflix, Zara, Maaş" class="w-full bg-slate-950/80 border border-slate-800 rounded-xl p-3 text-xs text-white placeholder-slate-600 focus:border-lime-400 outline-none transition mt-1" required>
+              </div>
+
+              <div class="grid grid-cols-2 gap-2">
+                <div>
+                  <label class="text-xs font-semibold text-slate-400">Tutar (TL)</label>
+                  <input v-model.number="newTx.amount" type="number" step="0.01" placeholder="0.00" class="w-full bg-slate-950/80 border border-slate-800 rounded-xl p-3 text-xs text-white focus:border-lime-400 outline-none transition mt-1" required>
+                </div>
+                <div>
+                  <label class="text-xs font-semibold text-slate-400">İşlem Tipi</label>
+                  <select v-model="newTx.type" @change="onTitleChange" class="w-full bg-slate-950/80 border border-slate-800 rounded-xl p-3 text-xs text-white focus:border-lime-400 outline-none transition mt-1">
+                    <option value="EXPENSE">Gider (-)</option>
+                    <option value="INCOME">Gelir (+)</option>
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label class="text-xs font-semibold text-slate-400 flex items-center justify-between mb-1">
+                  <span>Kategori</span>
+                  <span v-if="aiSuggested" class="text-lime-400 text-[10px] font-extrabold">⚡ AI Otomatik Seçti</span>
+                </label>
+                
+                <select v-model="newTx.category" class="w-full bg-slate-950/80 border border-slate-800 rounded-xl p-3 text-xs text-white focus:border-lime-400 outline-none transition" required>
+                  <option value="" disabled selected>Kategori Seçin veya AI'a Bırakın</option>
+                  <template v-if="newTx.type === 'EXPENSE'">
+                    <option v-for="cat in expenseCategories" :key="cat" :value="cat">{{ cat }}</option>
+                  </template>
+                  <template v-else>
+                    <option v-for="cat in incomeCategories" :key="cat" :value="cat">{{ cat }}</option>
+                  </template>
+                </select>
+              </div>
+
+              <button type="submit" class="w-full bg-lime-400 hover:bg-lime-300 text-slate-950 font-black p-3 rounded-xl transition text-xs shadow-lg glow-lime">
+                İşlemi Kaydet
+              </button>
+            </form>
+          </div>
+
+          <!-- Bill Form -->
+          <div class="cleo-card p-5 space-y-4">
+            <h3 class="font-extrabold text-sm text-slate-100 flex items-center gap-2">
+              <i class="fa-solid fa-bolt text-cyan-400"></i> Fatura & Abonelik Ekle
+            </h3>
+            
+            <form @submit.prevent="addBill" class="space-y-3">
+              <div class="grid grid-cols-2 gap-2">
+                <div>
+                  <label class="text-xs font-semibold text-slate-400">Tür</label>
+                  <select v-model="newBill.bill_type" class="w-full bg-slate-950/80 border border-slate-800 rounded-xl p-2.5 text-xs text-white outline-none mt-1">
+                    <option value="Elektrik">Elektrik</option>
+                    <option value="Su">Su</option>
+                    <option value="Doğalgaz">Doğalgaz</option>
+                    <option value="İnternet">İnternet</option>
+                  </select>
+                </div>
+                <div>
+                  <label class="text-xs font-semibold text-slate-400">Dönem</label>
+                  <input v-model="newBill.billing_period" type="text" placeholder="2026-08" class="w-full bg-slate-950/80 border border-slate-800 rounded-xl p-2.5 text-xs text-white outline-none mt-1" required>
+                </div>
+              </div>
+
+              <div class="grid grid-cols-2 gap-2">
+                <div>
+                  <label class="text-xs font-semibold text-slate-400">Tüketim</label>
+                  <input v-model.number="newBill.consumption_amount" type="number" step="0.1" placeholder="150" class="w-full bg-slate-950/80 border border-slate-800 rounded-xl p-2.5 text-xs text-white outline-none mt-1">
+                </div>
+                <div>
+                  <label class="text-xs font-semibold text-slate-400">Tutar (TL)</label>
+                  <input v-model.number="newBill.cost" type="number" step="0.01" placeholder="0.00" class="w-full bg-slate-950/80 border border-slate-800 rounded-xl p-2.5 text-xs text-white outline-none mt-1" required>
+                </div>
+              </div>
+
+              <button type="submit" class="w-full bg-slate-800 hover:bg-slate-700 text-cyan-300 font-extrabold p-2.5 rounded-xl border border-cyan-500/30 transition text-xs">
+                Faturayı Sisteme Ekle
+              </button>
+            </form>
+          </div>
+
+        </div>
+
+        <!-- Charts & Tables Column -->
+        <div class="lg:col-span-2 space-y-6">
+
+          <!-- Charts -->
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div class="cleo-card p-5">
+              <h4 class="text-xs font-extrabold uppercase tracking-wider text-slate-400 mb-3">Gider Dağılımı (% Yüzdelik)</h4>
+              <div class="h-52 flex items-center justify-center">
+                <canvas id="categoryChart"></canvas>
+              </div>
+            </div>
+            
+            <div class="cleo-card p-5">
+              <h4 class="text-xs font-extrabold uppercase tracking-wider text-slate-400 mb-3">Fatura Trendi (Ayrıştırılmış)</h4>
+              <div class="h-52 flex items-center justify-center">
+                <canvas id="billTrendChart"></canvas>
+              </div>
+            </div>
+          </div>
+
+          <!-- Bills Table -->
+          <div class="cleo-card p-5 space-y-3">
+            <div class="flex items-center justify-between">
+              <h3 class="font-extrabold text-sm text-cyan-300 flex items-center gap-2">
+                <i class="fa-solid fa-file-invoice-dollar"></i> Kayıtlı Faturalar
+              </h3>
+              <span class="text-xs font-bold text-slate-500">{{ bills.length }} Fatura</span>
+            </div>
+
+            <div class="overflow-x-auto max-h-48">
+              <table class="w-full text-left text-xs text-slate-300">
+                <thead class="bg-slate-950/60 uppercase text-[10px] font-extrabold text-slate-500 tracking-wider">
+                  <tr>
+                    <th class="p-2.5">Tür</th>
+                    <th class="p-2.5">Dönem</th>
+                    <th class="p-2.5">Tüketim</th>
+                    <th class="p-2.5">Tutar</th>
+                    <th class="p-2.5 text-center">Sil</th>
+                  </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-800/60">
+                  <tr v-for="b in bills" :key="b.id" class="hover:bg-slate-800/40 transition">
+                    <td class="p-2.5 font-bold text-white flex items-center gap-1.5">
+                      <span class="w-2 h-2 rounded-full" :class="b.bill_type === 'Elektrik' ? 'bg-amber-400' : (b.bill_type === 'Su' ? 'bg-cyan-400' : (b.bill_type === 'Doğalgaz' ? 'bg-orange-400' : 'bg-purple-400'))"></span>
+                      {{ b.bill_type }}
+                    </td>
+                    <td class="p-2.5 text-slate-400">{{ b.billing_period }}</td>
+                    <td class="p-2.5 text-slate-400">{{ b.consumption_amount }} {{ b.consumption_unit }}</td>
+                    <td class="p-2.5 font-black text-cyan-400">{{ formatCurrency(b.cost) }}</td>
+                    <td class="p-2.5 text-center">
+                      <button @click="deleteBill(b.id)" class="text-slate-600 hover:text-rose-400 p-1 transition">
+                        <i class="fa-solid fa-trash-can"></i>
+                      </button>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- Transaction Logs Table -->
+          <div class="cleo-card p-5 space-y-3">
+            <div class="flex items-center justify-between">
+              <h3 class="font-extrabold text-sm text-slate-200 flex items-center gap-2">
+                <i class="fa-solid fa-clock-rotate-left text-pink-400"></i> İşlem Geçmişi
+              </h3>
+              <span class="text-xs font-bold text-slate-500">{{ transactions.length }} Hareket</span>
+            </div>
+
+            <div class="overflow-x-auto max-h-56">
+              <table class="w-full text-left text-xs text-slate-300">
+                <thead class="bg-slate-950/60 uppercase text-[10px] font-extrabold text-slate-500 tracking-wider">
+                  <tr>
+                    <th class="p-3">Tarih</th>
+                    <th class="p-3">Açıklama</th>
+                    <th class="p-3">Kategori</th>
+                    <th class="p-3">Tutar</th>
+                    <th class="p-3 text-center">Sil</th>
+                  </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-800/60">
+                  <tr v-for="t in transactions" :key="t.id" class="hover:bg-slate-800/40 transition">
+                    <td class="p-3 text-slate-400">{{ formatDate(t.date) }}</td>
+                    <td class="p-3 font-bold text-white">{{ t.title }}</td>
+                    <td class="p-3">
+                      <span class="bg-slate-800 border border-slate-700 px-2.5 py-1 rounded-full text-[10px] font-bold text-slate-300">
+                        {{ t.category }}
+                      </span>
+                    </td>
+                    <td class="p-3 font-black text-sm" :class="t.type === 'INCOME' ? 'text-emerald-400' : 'text-rose-400'">
+                      {{ t.type === 'INCOME' ? '+' : '-' }}{{ formatCurrency(t.amount) }}
+                    </td>
+                    <td class="p-3 text-center">
+                      <button @click="deleteTransaction(t.id)" class="text-slate-600 hover:text-rose-400 p-1 transition">
+                        <i class="fa-solid fa-trash-can"></i>
+                      </button>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+        </div>
+
+      </div>
+
+    </div>
+
+    <!-- TAB 2: HESABIM & GEÇMİŞ AYLAR ARŞİVİ -->
+    <div v-if="currentTab === 'account'" class="space-y-6">
+      
+      <div class="cleo-card p-6 border-indigo-500/30 bg-gradient-to-r from-slate-900 via-indigo-950/40 to-slate-900">
+        <div class="flex flex-col md:flex-row items-center justify-between gap-6">
+          <div class="flex items-center gap-4">
+            <div class="w-16 h-16 rounded-3xl bg-indigo-600/20 border border-indigo-500/40 flex items-center justify-center text-3xl text-indigo-400 font-bold">
+              👤
+            </div>
+            <div>
+              <h2 class="text-xl font-extrabold text-white">Hesabım & Finansal Arşiv</h2>
+              <p class="text-xs text-slate-400">Aylık Bütçe İncelemesi, Harcama Oranları ve Geçmiş Kayıtlar</p>
+            </div>
+          </div>
+
+          <div class="flex flex-wrap items-center gap-3">
+            <div class="bg-slate-950/80 px-4 py-2.5 rounded-2xl border border-slate-800 text-center">
+              <span class="text-[10px] text-slate-500 font-bold uppercase block">Kayıtlı İşlem</span>
+              <span class="text-lg font-black text-lime-400">{{ transactions.length }}</span>
+            </div>
+            <div class="bg-slate-950/80 px-4 py-2.5 rounded-2xl border border-slate-800 text-center">
+              <span class="text-[10px] text-slate-500 font-bold uppercase block">Kayıtlı Fatura</span>
+              <span class="text-lg font-black text-cyan-400">{{ bills.length }}</span>
+            </div>
+            <div class="bg-slate-950/80 px-4 py-2.5 rounded-2xl border border-slate-800 text-center">
+              <span class="text-[10px] text-slate-500 font-bold uppercase block">Net Tasarruf</span>
+              <span class="text-lg font-black text-emerald-400">{{ formatCurrency(insights.net_savings) }}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="space-y-4">
+        <h3 class="text-sm font-extrabold text-slate-300 uppercase tracking-wider flex items-center gap-2">
+          <i class="fa-solid fa-box-archive text-lime-400"></i> Geçmiş Aylar Bütçe Özeti
+        </h3>
+
+        <div v-if="monthlyArchive.length === 0" class="cleo-card p-8 text-center text-slate-500 text-xs">
+          Henüz arşivlenmiş geçmiş döneme ait işlem bulunmuyor.
+        </div>
+
+        <div v-else class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+          <div v-for="m in monthlyArchive" :key="m.period" class="cleo-card p-5 space-y-4 hover:border-lime-400/40 transition">
+            <div class="flex items-center justify-between pb-3 border-b border-slate-800">
+              <span class="font-extrabold text-base text-white flex items-center gap-2">
+                <i class="fa-regular fa-calendar-check text-lime-400"></i> {{ m.periodName }}
+              </span>
+              <span class="text-[10px] font-black px-2.5 py-1 rounded-full" :class="m.netSavings >= 0 ? 'bg-emerald-500/20 text-emerald-300' : 'bg-rose-500/20 text-rose-300'">
+                {{ m.netSavings >= 0 ? 'KÂRDA' : 'AÇIKTA' }}
+              </span>
+            </div>
+
+            <div class="grid grid-cols-2 gap-2 text-xs">
+              <div class="bg-slate-950/60 p-2.5 rounded-xl border border-slate-800">
+                <span class="text-[10px] text-slate-500 block">Gelir</span>
+                <span class="font-bold text-emerald-400">{{ formatCurrency(m.income) }}</span>
+              </div>
+              <div class="bg-slate-950/60 p-2.5 rounded-xl border border-slate-800">
+                <span class="text-[10px] text-slate-500 block">Gider</span>
+                <span class="font-bold text-rose-400">{{ formatCurrency(m.expense) }}</span>
+              </div>
+            </div>
+
+            <div class="space-y-1">
+              <div class="flex justify-between text-[11px] font-bold">
+                <span class="text-slate-400">Gider Oranı</span>
+                <span :class="m.expenseRatio > 80 ? 'text-rose-400' : 'text-lime-400'">%{{ m.expenseRatio }}</span>
+              </div>
+              <div class="w-full bg-slate-950 rounded-full h-2 overflow-hidden border border-slate-800">
+                <div class="h-full rounded-full transition-all" :class="m.expenseRatio > 80 ? 'bg-rose-500' : 'bg-lime-400'" :style="{ width: Math.min(100, m.expenseRatio) + '%' }"></div>
+              </div>
+            </div>
+
+            <div class="text-[11px] text-slate-400 space-y-1 pt-1">
+              <div class="flex justify-between">
+                <span>Net Tasarruf:</span>
+                <b class="text-white">{{ formatCurrency(m.netSavings) }}</b>
+              </div>
+              <div class="flex justify-between">
+                <span>Fatura Toplamı:</span>
+                <b class="text-cyan-400">{{ formatCurrency(m.billTotal) }}</b>
+              </div>
+              <div class="flex justify-between">
+                <span>En Yüksek Kategori:</span>
+                <b class="text-lime-400">{{ m.topCategory }}</b>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- AI CHATBOT FLOATING DRAWER -->
+    <div v-if="isChatOpen" class="cleo-card chat-window border-lime-500/40 bg-slate-950/95 shadow-2xl">
+      <!-- Chat Header -->
+      <div class="p-4 border-b border-slate-800 flex items-center justify-between">
+        <div class="flex items-center gap-2.5">
+          <div class="w-8 h-8 rounded-xl bg-lime-400 text-slate-950 flex items-center justify-center font-black text-sm">
+            🤖
+          </div>
+          <div>
+            <h4 class="text-xs font-extrabold text-white">FişAI Akıllı Asistan</h4>
+            <span class="text-[10px] text-emerald-400 flex items-center gap-1 font-bold">
+              <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping"></span> Çevrimiçi
+            </span>
+          </div>
+        </div>
+        <button @click="isChatOpen = false" class="text-slate-500 hover:text-slate-300 text-sm">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+
+      <!-- Quick Prompt Pills -->
+      <div class="p-2 border-b border-slate-800/60 flex items-center gap-1.5 overflow-x-auto">
+        <button @click="sendQuickMessage('En çok neye harcadım?')" class="whitespace-nowrap bg-slate-900 hover:bg-slate-800 text-[10px] font-bold text-slate-300 px-2.5 py-1 rounded-lg border border-slate-800">
+          💸 En çok harcama?
+        </button>
+        <button @click="sendQuickMessage('Kahve masrafım ne kadar?')" class="whitespace-nowrap bg-slate-900 hover:bg-slate-800 text-[10px] font-bold text-slate-300 px-2.5 py-1 rounded-lg border border-slate-800">
+          ☕ Kahve masrafı?
+        </button>
+        <button @click="sendQuickMessage('Bana tasarruf önerisi ver')" class="whitespace-nowrap bg-slate-900 hover:bg-slate-800 text-[10px] font-bold text-slate-300 px-2.5 py-1 rounded-lg border border-slate-800">
+          💡 Tasarruf tavsiyesi
+        </button>
+      </div>
+
+      <!-- Chat Messages Body -->
+      <div class="flex-1 p-4 overflow-y-auto space-y-3 text-xs" id="chatMsgContainer">
+        <div v-for="(msg, i) in chatHistory" :key="i" class="flex gap-2" :class="msg.role === 'user' ? 'justify-end' : 'justify-start'">
+          <div v-if="msg.role === 'ai'" class="w-6 h-6 rounded-lg bg-lime-400/20 text-lime-400 flex items-center justify-center text-xs flex-shrink-0">
+            🤖
+          </div>
+          <div class="p-3 rounded-2xl max-w-[80%]" :class="msg.role === 'user' ? 'bg-lime-400 text-slate-950 font-bold' : 'bg-slate-900 border border-slate-800 text-slate-200 font-medium'">
+            {{ msg.text }}
+          </div>
+        </div>
+      </div>
+
+      <!-- Chat Input Footer -->
+      <form @submit.prevent="sendMessage" class="p-3 border-t border-slate-800 flex items-center gap-2">
+        <input v-model="userMsg" type="text" placeholder="FişAI'a soru sorun..." class="flex-1 bg-slate-900 border border-slate-800 rounded-xl px-3 py-2.5 text-xs text-white outline-none focus:border-lime-400">
+        <button type="submit" class="bg-lime-400 hover:bg-lime-300 text-slate-950 w-9 h-9 rounded-xl flex items-center justify-center font-bold transition">
+          <i class="fa-solid fa-paper-plane text-xs"></i>
+        </button>
+      </form>
+    </div>
+
+    <!-- AI Chat Floating Trigger Button -->
+    <button @click="isChatOpen = !isChatOpen" class="chat-bubble-btn w-14 h-14 rounded-2xl bg-gradient-to-tr from-lime-400 to-emerald-500 text-slate-950 text-2xl font-black shadow-2xl glow-lime flex items-center justify-center hover:scale-105 active:scale-95 transition-all no-print">
+      💬
+    </button>
+
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>

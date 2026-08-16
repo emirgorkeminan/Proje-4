@@ -1,0 +1,18 @@
+version: '3.8'
+
+services:
+  backend:
+    build: ./backend
+    container_name: proje4-backend
+    volumes:
+      - ./backend/data:/app/data
+    restart: unless-stopped
+
+  frontend:
+    build: ./frontend
+    container_name: proje4-frontend
+    ports:
+      - "8000:80"  # Frontend artık dışarıya 8000 portundan açılıyor
+    depends_on:
+      - backend
+    restart: unless-stopped
